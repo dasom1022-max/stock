@@ -83,7 +83,7 @@ def get_time_context(hour):
         return "🌃 [오후 6시 장마감 & 야간 프리뷰] 오늘 국내 증시 마감 총평과 오늘 밤 미국 증시 주요 관전 포인트"
 
 def generate_stock_report():
-    """수집된 데이터를 바탕으로 Gemini가 시간대별 맞춤 리포트를 생성합니다. (503 에러 대비 자동 재시도 로직 포함)"""
+    """수집된 데이터를 바탕으로 Gemini가 시간대별 맞춤 리포트를 생성합니다. (대기 시간 연장 및 연결 끊김 방어)"""
     client = genai.Client(api_key=GEMINI_API_KEY)
     kst_now = get_kst_now()
     time_theme = get_time_context(kst_now.hour)
@@ -126,9 +126,10 @@ def generate_stock_report():
             )
             return response.text
         except Exception as e:
-            print(f"AI 서버 과부하 감지 (시도 {attempt + 1}/{max_retries}): {e}")
+            print(f"AI 서버 응답 지연/오류 감지 (시도 {attempt + 1}/{max_retries}): {e}")
             if attempt < max_retries - 1:
-                time.sleep(5)  # 5초 대기 후 재시도
+                print("서버 안정화를 위해 15초 대기 후 재시도합니다...")
+                time.sleep(15)  # 대기 시간을 15초로 늘려 서버 과부하 회피
             else:
                 raise e
 
