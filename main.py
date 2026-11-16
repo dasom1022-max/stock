@@ -124,22 +124,25 @@ def generate_stock_report():
     return response.text
 
 def send_telegram_message(message):
-    """텔레그램 메시지 전송 (4096자 초과 시 분할 전송 처리 포함)"""
+    """텔레그램 메시지 전송 (여러 그룹방 동시 전송 및 4096자 초과 시 분할 전송)"""
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     max_length = 4000
     
-    for i in range(0, len(message), max_length):
-        chunk = message[i:i + max_length]
-        payload = {
-            "chat_id": CHAT_ID,
-            "text": chunk,
-            "parse_mode": "Markdown"
-        }
-        res = requests.post(url, json=payload)
-        # 마크다운 파싱 에러 발생 시 일반 텍스트로 재전송 (안전장치)
-        if not res.json().get("ok"):
-            payload.pop("parse_mode")
-            requests.post(url, json=payload)
+    # 쉼표(,)를 기준으로 여러 개의 Chat ID를 분리합니다.
+    chat_ids = [cid.strip() for cid in CHAT_ID.split(",") if cid.strip()]
+    
+    for chat_id in chat_ids:
+        for i in range(0, len(message), max_length):
+            chunk = message[i:i + max_length]
+            payload = {
+                "chat_id": chat_id,
+                "text": chunk,
+                "parse_mode": "Markdown"
+            }
+            res = requests.post(url, json=payload)
+            if not res.json().get("ok"):
+                payload.pop("parse_mode")
+                requests.post(url, json=payload)
 
 if __name__ == "__main__":
     print("데이터 수집 및 AI 분석 시작...")
