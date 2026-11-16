@@ -1,4 +1,5 @@
 import os
+import time
 import datetime
 import requests
 import feedparser
@@ -47,10 +48,10 @@ def get_naver_finance_news():
     news_list = []
     try:
         res = requests.get(url, headers=headers, timeout=10)
-        res.encoding = 'euc-kr' # 네이버 금융 인코딩 처리
+        res.encoding = 'euc-kr'
         soup = BeautifulSoup(res.text, "html.parser")
         articles = soup.select(".mainNewsList .articleSubject a")
-        for a in articles[:12]: # 상위 12개 기사 추출
+        for a in articles[:12]:
             title = a.get_text(strip=True)
             if title:
                 news_list.append(f"- {title}")
@@ -60,12 +61,11 @@ def get_naver_finance_news():
 
 def get_google_us_news():
     """구글 뉴스(영문/미국 증시 및 경제) RSS에서 최신 뉴스를 수집합니다."""
-    # 구글 뉴스 US Business/Market 최신 피드
     rss_url = "https://news.google.com/rss/search?q=US+stock+market+OR+Nasdaq+OR+Federal+Reserve+when:1d&hl=en-US&gl=US&ceid=US:en"
     news_list = []
     try:
         feed = feedparser.parse(rss_url)
-        for entry in feed.entries[:12]: # 상위 12개 기사 추출
+        for entry in feed.entries[:12]:
             news_list.append(f"- {entry.title}")
         return "\n".join(news_list) if news_list else "수집된 국외 뉴스 없음"
     except Exception as e:
@@ -83,7 +83,7 @@ def get_time_context(hour):
         return "🌃 [오후 6시 장마감 & 야간 프리뷰] 오늘 국내 증시 마감 총평과 오늘 밤 미국 증시 주요 관전 포인트"
 
 def generate_stock_report():
-    """수집된 데이터를 바탕으로 Gemini가 시간대별 맞춤 리포트를 생성합니다."""
+    """수집된 데이터를 바탕으로 Gemini가 시간대별 맞춤 리포트를 생성합니다. (503 에러 대비 자동 재시도 로직 포함)"""
     client = genai.Client(api_key=GEMINI_API_KEY)
     kst_now = get_kst_now()
     time_theme = get_time_context(kst_now.hour)
@@ -117,18 +117,26 @@ def generate_stock_report():
     ※ 텔레그램 마크다운(`*굵게*`, `- 리스트` 등)을 사용하되, 특수문자 파싱 오류가 나지 않도록 깔끔하고 가독성 좋게 작성해줘.
     """
     
-    response = client.models.generate_content(
-        model='gemini-3.8-flash',
-        contents=prompt
-    )
-    return response.text
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            response = client.models.generate_content(
+                model='gemini-3.8-flash',
+                contents=prompt
+            )
+            return response.text
+        except Exception as e:
+            print(f"AI 서버 과부하 감지 (시도 {attempt + 1}/{max_retries}): {e}")
+            if attempt < max_retries - 1:
+                time.sleep(5)  # 5초 대기 후 재시도
+            else:
+                raise e
 
 def send_telegram_message(message):
     """텔레그램 메시지 전송 (여러 그룹방 동시 전송 및 4096자 초과 시 분할 전송)"""
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     max_length = 4000
     
-    # 쉼표(,)를 기준으로 여러 개의 Chat ID를 분리합니다.
     chat_ids = [cid.strip() for cid in CHAT_ID.split(",") if cid.strip()]
     
     for chat_id in chat_ids:
