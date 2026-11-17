@@ -83,7 +83,7 @@ def get_time_context(hour):
         return "🌃 [오후 6시 장마감 & 야간 프리뷰] 오늘 국내 증시 마감 총평과 오늘 밤 미국 증시 주요 관전 포인트"
 
 def generate_stock_report():
-    """수집된 데이터를 바탕으로 Gemini가 시간대별 맞춤 리포트를 생성합니다. (대기 시간 연장 및 연결 끊김 방어)"""
+    """수집된 데이터를 바탕으로 Gemini가 데일리/위클리 트레이딩 종목을 포함한 리포트를 생성합니다."""
     client = genai.Client(api_key=GEMINI_API_KEY)
     kst_now = get_kst_now()
     time_theme = get_time_context(kst_now.hour)
@@ -93,10 +93,10 @@ def generate_stock_report():
     global_news = get_google_us_news()
     
     prompt = f"""
-    너는 여의도 및 월스트리트 출신의 전문 주식 수석 애널리스트야.
+    너는 여의도 및 월스트리트 최정예 수석 애널리스트이자 단기/스윙 트레이딩 전문가야.
     현재 시각은 한국 시간 {kst_now.strftime('%Y-%m-%d %H:%M')}이며, 이번 브리핑의 주제는 '{time_theme}'이야.
     
-    아래 실시간 수집된 지수 데이터, 네이버 국내 금융 뉴스, 구글 국외 경제 뉴스를 종합 분석하여 텔레그램 단체방에 공유할 브리핑을 작성해줘.
+    아래 실시간 수집된 지수 데이터, 네이버 국내 금융 뉴스, 구글 국외 경제 뉴스를 철저히 분석하여 텔레그램 단체방에 공유할 종합 투자 브리핑을 작성해줘.
     
     [1. 실시간 주요 지수]
     {market_data}
@@ -107,14 +107,17 @@ def generate_stock_report():
     [3. 국외 주요 뉴스 (구글 뉴스)]
     {global_news}
     
-    [작성 필수 가이드]
-    1. 최상단에 '{time_theme}' 제목과 핵심 지수 요약을 깔끔하게 배치할 것.
-    2. **국내외 핵심 뉴스 요약**: 수집된 뉴스 중 시장에 영향을 줄 핵심 이슈 3~4가지를 요약할 것.
-    3. **유망 섹터 & 테마 분석**: 현재 뉴스와 수급 흐름상 가장 주목해야 할 섹터 2~3가지를 선정하고 이유를 설명할 것.
-    4. **관심 종목 아이디어**: 선정된 섹터의 대장주 또는 수혜주(국내/미국 종목 모두 가능)와 투자 포인트를 제시할 것.
-    5. **리스크 및 대응 전략**: 주의해야 할 변수나 매매 전략을 한 줄로 정리할 것.
+    [작성 필수 가이드 (마크다운 형식 준수)]
+    1. **{time_theme} 요약 및 글로벌 마감/장중 시황**: 핵심 지수와 시장 분위기 한 줄 평.
+    2. **국내외 핵심 이슈 및 뉴스 분석**: 시장에 파장을 미칠 주요 뉴스 3~4가지 요약.
+    3. **⚡ [스캘핑용 데일리 트레이딩 종목]**:
+       - 오늘 하루 강한 변동성이나 거래대금이 집중될 것으로 예상되는 **초단기 매매(스캘핑/데이토레이딩) 종목 1~2개** 추천.
+       - 각 종목별 **핵심 모멘텀** 및 **진입/대응 참고 포인트**(간단하게) 제시.
+    4. **🔥 [위클리(주간 스윙) 추천 종목 및 섹터]**:
+       - 이번 주 수급과 테마 흐름상 우위가 예상되는 **중기/스윙 관점의 위클리 유망 종목 및 섹터 2개** 선정 이유와 함께 제시.
+    5. **⚠️ 리스크 관리 및 대응 전략**: 오늘 장 주의해야 할 변수나 리스크 통제 방안.
     
-    ※ 텔레그램 마크다운(`*굵게*`, `- 리스트` 등)을 사용하되, 특수문자 파싱 오류가 나지 않도록 깔끔하고 가독성 좋게 작성해줘.
+    ※ 텔레그램에서 깨지지 않도록 너무 복잡한 표 형태는 피하고 이모지와 리스트를 활용해 가독성 높게 작성해줘.
     """
     
     max_retries = 3
@@ -129,16 +132,18 @@ def generate_stock_report():
             print(f"AI 서버 응답 지연/오류 감지 (시도 {attempt + 1}/{max_retries}): {e}")
             if attempt < max_retries - 1:
                 print("서버 안정화를 위해 15초 대기 후 재시도합니다...")
-                time.sleep(15)  # 대기 시간을 15초로 늘려 서버 과부하 회피
+                time.sleep(15)
             else:
                 raise e
 
 def send_telegram_message(message):
-    """텔레그램 메시지 전송 (여러 그룹방 동시 전송 및 4096자 초과 시 분할 전송)"""
+    """텔레그램 메시지 전송 (설정된 여러 개의 그룹방으로 동시 전송 및 4096자 초과 시 분할 전송)"""
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     max_length = 4000
     
+    # 쉼표(,)로 구분된 여러 개의 Chat ID를 파싱
     chat_ids = [cid.strip() for cid in CHAT_ID.split(",") if cid.strip()]
+    print(f"발송 대상 Chat ID 목록: {chat_ids}")
     
     for chat_id in chat_ids:
         for i in range(0, len(message), max_length):
@@ -149,9 +154,13 @@ def send_telegram_message(message):
                 "parse_mode": "Markdown"
             }
             res = requests.post(url, json=payload)
+            print(f"방 ID [{chat_id}] 전송 응답: {res.json()}")
+            
+            # 마크다운 파싱 오류 시 일반 텍스트로 재시도
             if not res.json().get("ok"):
                 payload.pop("parse_mode")
-                requests.post(url, json=payload)
+                res_retry = requests.post(url, json=payload)
+                print(f"방 ID [{chat_id}] 재시도 응답: {res_retry.json()}")
 
 if __name__ == "__main__":
     print("데이터 수집 및 AI 분석 시작...")
