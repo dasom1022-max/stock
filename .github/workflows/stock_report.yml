@@ -24,11 +24,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Verify main.py exists
-        run: |
-          pwd
-          ls -la main.py
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
