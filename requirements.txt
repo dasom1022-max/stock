@@ -1,5 +1,2 @@
-requests
-yfinance
-google-genai
-beautifulsoup4
-feedparser
+google-genai>=1.0.0
+requests>=2.31.0
