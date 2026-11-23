@@ -1,4 +1,4 @@
-name: Stock Market Telegram Briefing
+name: Stock Report Telegram Bot
 
 on:
   schedule:
@@ -16,13 +16,18 @@ permissions:
   contents: read
 
 jobs:
-  briefing:
+  report:
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Verify main.py exists
+        run: |
+          pwd
+          ls -la main.py
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -33,7 +38,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run briefing bot
+      - name: Run stock report bot
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -41,7 +46,7 @@ jobs:
           TARGET_SLOT: ${{ inputs.slot }}
         run: |
           if [ -n "$TARGET_SLOT" ]; then
-            python stock_briefing.py --slot="$TARGET_SLOT" --force
+            python main.py --slot="$TARGET_SLOT" --force
           else
-            python stock_briefing.py
+            python main.py
           fi
