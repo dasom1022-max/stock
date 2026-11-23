@@ -1,38 +1,47 @@
-name: Daily Stock Briefing (4 Times a Day)
-
-concurrency:
-  group: stock-report-bot
-  cancel-in-progress: true
+name: Stock Market Telegram Briefing
 
 on:
   schedule:
-    - cron: '0 22 * * *' # 한국 시간 오전 07:00
-    - cron: '0 2 * * *'  # 한국 시간 오전 11:00
-    - cron: '0 5 * * *'  # 한국 시간 오후 02:00 (14:00)
-    - cron: '0 9 * * *'  # 한국 시간 오후 06:00 (18:00)
-  workflow_dispatch:     # 수동 즉시 실행 테스트용
+    # 평일(월~금) KST 07:01, 11:01, 14:01, 18:01 실행
+    - cron: "1 7,11,14,18 * * 1-5"
+      timezone: "Asia/Seoul"
+  workflow_dispatch:
+    inputs:
+      slot:
+        description: "테스트할 회차 (07, 11, 14, 18 / 비워두면 현재 시각 기준)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
 
 jobs:
-  run-bot:
+  briefing:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.12"
+          cache: "pip"
 
-      - name: Install Dependencies
-        run: |
-          pip install --upgrade pip
-          pip install -r requirements.txt
+      - name: Install dependencies
+        run: pip install -r requirements.txt
 
-      - name: Run Stock Bot Script
+      - name: Run briefing bot
         env:
-          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TARGET_SLOT: ${{ inputs.slot }}
         run: |
-          python main.py
+          if [ -n "$TARGET_SLOT" ]; then
+            python stock_briefing.py --slot="$TARGET_SLOT" --force
+          else
+            python stock_briefing.py
+          fi
