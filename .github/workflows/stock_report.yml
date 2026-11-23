@@ -1,5 +1,9 @@
 name: Daily Stock Briefing (4 Times a Day)
 
+concurrency:
+  group: stock-report-bot
+  cancel-in-progress: true
+
 on:
   schedule:
     - cron: '0 22 * * *' # 한국 시간 오전 07:00
