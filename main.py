@@ -67,7 +67,7 @@ def build_prompt(slot: str, now_str: str) -> str:
 
 
 def generate_briefing(slot: str, now_kst: datetime) -> str:
-    api_key = os.environ.get("GEMINI_API_KEY")
+    api_key = (os.environ.get("GEMINI_API_KEY") or "").strip()
     if not api_key:
         raise RuntimeError("환경변수 GEMINI_API_KEY가 설정되지 않았습니다.")
 
@@ -102,12 +102,20 @@ def generate_briefing(slot: str, now_kst: datetime) -> str:
     return header + text
 
 
-def send_telegram(message: str) -> None:
-    token = os.environ.get("TELEGRAM_BOT_TOKEN")
-    chat_id = os.environ.get("TELEGRAM_CHAT_ID")
-    if not token or not chat_id:
-        raise RuntimeError("환경변수 TELEGRAM_BOT_TOKEN 또는 TELEGRAM_CHAT_ID가 누락되었습니다.")
+def get_chat_ids() -> list[str]:
+    """TELEGRAM_CHAT_IDS(콤마 구분) 및 TELEGRAM_CHAT_ID에서 중복 없이 Chat ID 목록을 추출합니다."""
+    raw_multi = os.environ.get("TELEGRAM_CHAT_IDS") or ""
+    raw_single = os.environ.get("TELEGRAM_CHAT_ID") or ""
 
+    candidates = []
+    for part in (raw_multi + "," + raw_single).split(","):
+        cid = part.strip()
+        if cid and cid not in candidates:
+            candidates.append(cid)
+    return candidates
+
+
+def send_to_single_chat(token: str, chat_id: str, message: str) -> None:
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     chunk_size = 3900
     for i in range(0, len(message), chunk_size):
@@ -124,6 +132,32 @@ def send_telegram(message: str) -> None:
             payload.pop("parse_mode")
             resp = requests.post(url, json=payload, timeout=20)
         resp.raise_for_status()
+
+
+def send_telegram(message: str) -> None:
+    token = (os.environ.get("TELEGRAM_BOT_TOKEN") or "").strip()
+    chat_ids = get_chat_ids()
+
+    if not token:
+        raise RuntimeError("환경변수 TELEGRAM_BOT_TOKEN이 누락되었습니다.")
+    if not chat_ids:
+        raise RuntimeError("환경변수 TELEGRAM_CHAT_IDS 또는 TELEGRAM_CHAT_ID가 누락되었습니다.")
+
+    errors = []
+    sent_count = 0
+    for cid in chat_ids:
+        try:
+            send_to_single_chat(token, cid, message)
+            sent_count += 1
+            print(f"텔레그램 발송 성공 -> chat_id: {cid}")
+        except Exception as exc:
+            print(f"텔레그램 발송 실패 -> chat_id: {cid}, 오류: {exc}")
+            errors.append(f"{cid}: {exc}")
+
+    if sent_count == 0:
+        raise RuntimeError("모든 채팅방 발송 실패: " + " | ".join(errors))
+    if errors:
+        raise RuntimeError("일부 채팅방 발송 실패: " + " | ".join(errors))
 
 
 def main() -> None:
