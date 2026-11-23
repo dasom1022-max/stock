@@ -109,7 +109,6 @@ def send_telegram(message: str) -> None:
         raise RuntimeError("환경변수 TELEGRAM_BOT_TOKEN 또는 TELEGRAM_CHAT_ID가 누락되었습니다.")
 
     url = f"https://api.telegram.org/bot{token}/sendMessage"
-    # 텔레그램 메시지 최대 길이(4096자) 안전 분할
     chunk_size = 3900
     for i in range(0, len(message), chunk_size):
         chunk = message[i : i + chunk_size]
@@ -118,7 +117,6 @@ def send_telegram(message: str) -> None:
             "text": chunk,
             "disable_web_page_preview": True,
         }
-        # HTML 태그 파싱 오류 방지용 fallback
         if i == 0:
             payload["parse_mode"] = "HTML"
         resp = requests.post(url, json=payload, timeout=20)
@@ -130,7 +128,6 @@ def send_telegram(message: str) -> None:
 
 def main() -> None:
     now_kst = datetime.now(KST)
-    # 주말 방어 로직 (cron 1-5 외 수동 실행 시에도 평일 기준 동작)
     if now_kst.weekday() >= 5 and "--force" not in sys.argv:
         print("주말이므로 정기 보고를 건너뜁니다. (--force 옵션으로 강제 실행 가능)")
         return
