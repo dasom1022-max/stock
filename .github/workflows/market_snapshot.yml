@@ -1,0 +1,38 @@
+name: Market Snapshot (pykrx/yfinance)
+
+# Claude 예약 작업이 실행 직후 gh workflow run 으로 호출합니다.
+# 혹시 호출이 실패해도 최신 데이터가 있도록 평일 06:40, 10:40, 13:40, 17:40(KST)에도 자동 실행합니다.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "40 6,10,13,17 * * 1-5"
+      timezone: "Asia/Seoul"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: market-snapshot
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+      - run: pip install -r requirements.txt
+      - name: Collect prices
+        run: python market_data.py data/snapshot.md
+      - name: Commit snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/snapshot.md
+          git diff --cached --quiet && exit 0
+          git commit -m "data: market snapshot $(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M')"
+          for i in 1 2 3; do git pull --rebase -q && git push && break; sleep 5; done
