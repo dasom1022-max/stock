@@ -51,7 +51,7 @@
     {"name": "우리기술", "code": "032820", "market": "KQ"},
     {"name": "에이프릴바이오", "code": "397030", "market": "KQ"},
     {"name": "제주반도체", "code": "080220", "market": "KQ"},
-    {"name": "큐리오시스", "code": "", "market": "KQ"},
+    {"name": "큐리오시스", "code": "494120", "market": "KQ"},
     {"name": "아난티", "code": "025980", "market": "KQ"},
     {"name": "솔브레인", "code": "357780", "market": "KQ"},
     {"name": "두산테스나", "code": "131970", "market": "KQ"},
@@ -63,9 +63,9 @@
     {"name": "현대모비스", "code": "012330", "market": "KS"},
     {"name": "삼천당제약", "code": "000250", "market": "KQ"},
     {"name": "KBI메탈", "code": "024840", "market": "KQ"},
-    {"name": "리브스메드", "code": "", "market": "KQ"},
+    {"name": "리브스메드", "code": "491000", "market": "KQ"},
     {"name": "에이비엘바이오", "code": "298380", "market": "KQ"},
-    {"name": "알지노믹스", "code": "", "market": "KQ"},
+    {"name": "알지노믹스", "code": "476830", "market": "KQ"},
     {"name": "스튜디오드래곤", "code": "253450", "market": "KQ"}
   ],
   "global": [
